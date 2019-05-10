@@ -1,6 +1,9 @@
 package src
 
-import "bytes"
+import (
+	"bytes"
+	"fmt"
+)
 
 type content map[string][]string
 type tables struct {
@@ -25,6 +28,7 @@ func (t *tables) parseField(line []byte) {
 	tagName := string(name)
 	nameStr := string(title(name))
 	types := contents[1]
+	typesStr := toString(types)
 	contents = contents[2:]
 	types = types[:len(types)-1]
 	tmpBytes := bytes.Split(types, []byte{'('})
@@ -71,7 +75,6 @@ func (t *tables) parseField(line []byte) {
 	}
 
 	t.field[nameStr] = append(t.field[nameStr], tp)
-	t.field[nameStr] = append(t.field[nameStr], tagName)
 
 	if i := bytes.Index(line, comment); i > 0 { //has comment
 		var commentByts []byte
@@ -88,17 +91,69 @@ func (t *tables) parseField(line []byte) {
 		commentByts = commentByts[:len(commentByts)-2]
 
 		t.field[nameStr] = append(t.field[nameStr], string(commentByts))
+	} else {
+		t.field[nameStr] = append(t.field[nameStr], "")
+	}
+
+	t.field[nameStr] = append(t.field[nameStr], tagName)
+
+	if *gorm { //use gorm tag
+		//slice := append(t.field[nameStr], fmt.Sprintf("TYPE:%s;SIZE:%d", string(types), length))
+		slice := append(t.field[nameStr], fmt.Sprintf("TYPE:%s", typesStr))
+		if bytes.Contains(line, notNull) {
+			slice = append(slice, toString(notNull))
+		}
+		if bytes.Contains(line, autoIncrement) {
+			slice = append(slice, toString(autoIncrement))
+		}
+		if bytes.Contains(line, dft) {
+			for k := range contents {
+				if bytes.Equal(contents[k], dft) {
+					slice = append(slice, "DEFAULT:"+string(bytes.TrimRight(contents[k+1], ",")))
+				}
+			}
+		}
+		t.field[nameStr] = slice
+	}
+}
+
+func (t *tables) parseKey(line []byte) {
+	if !*gorm {
+		return
+	}
+	contents := bytes.Split(line, space)
+	if len(contents) >= 3 {
+		key := contents[2]
+		key = key[2 : len(key)-2]
+		nameStr := string(title(key))
+		t.field[nameStr] = append(t.field[nameStr], "PRIMARY KEY")
 	}
 
 }
 
-func (t *tables) parseKey(line []byte) {
-
-}
-
 func (t *tables) parseUniqueIndex(line []byte) {
+	if !*gorm {
+		return
+	}
 
+	t.parseIndex(line)
 }
 func (t *tables) parseIndex(line []byte) {
+	if !*gorm {
+		return
+	}
 
+	contents := bytes.Split(line, []byte{'`'})
+	if len(contents) < 5 {
+		return
+	}
+
+	if t.index == nil {
+		t.index = make(map[string][]string)
+	}
+	contents = contents[1 : len(contents)-1]
+	for i := 1; i <= len(contents)/2; i++ {
+		nameStr := string(title(contents[i*2]))
+		t.index[nameStr] = append(t.index[nameStr], "INDEX:"+string(contents[0]))
+	}
 }

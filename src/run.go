@@ -26,7 +26,7 @@ func Run() {
 	} else {
 		os.Remove(tmpFile)
 	}
-	if *print {
+	if *echo {
 		fmt.Println(string(buf))
 	}
 }

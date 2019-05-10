@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+	"strings"
+	"unsafe"
 )
 
 func writeTmpFile(buf []byte) []byte {
@@ -127,7 +129,7 @@ func title(name []byte) []byte {
 
 func parseTable(table tables) []byte {
 	var buf bytes.Buffer
-	buf.WriteString("package main\n\n")
+	buf.WriteString(fmt.Sprintf("package %s\n\n", *pkg))
 	if len(table.imports) > 0 {
 		buf.WriteString("import (\n")
 		for _, v := range table.imports {
@@ -145,15 +147,32 @@ func parseTable(table tables) []byte {
 	sort.Strings(keys)
 
 	for _, k := range keys {
+		tags := make([]string, 0)
 		v := table.field[k]
-		if len(v) > 2 {
-			buf.WriteString(fmt.Sprintf("\t%s\t%s\t`json:\"%s\"`\t//%s\n", k, v[0], v[1], v[2]))
-		} else {
-			buf.WriteString(fmt.Sprintf("\t%s\t%s\t`json:\"%s\"`\n", k, v[0], v[1]))
+		buf.WriteString(fmt.Sprintf("\t%s\t%s\t`json:\"%s\"", k, v[0], v[2]))
+		if len(v) > 3 {
+			buf.WriteString(" gorm:\"")
+			tags = append(tags, v[3:]...)
+		} else if *gorm && table.index != nil && len(table.index[k]) > 0 {
+			buf.WriteString(" gorm:\"")
+			tags = append(tags, table.index[k]...)
 		}
+
+		buf.WriteString(strings.Join(tags, ";"))
+		buf.WriteString("\"`")
+
+		if string(v[1]) != "" {
+			buf.WriteString(fmt.Sprintf(" //%s", v[1]))
+		}
+		buf.WriteByte('\n')
+
 	}
 
 	buf.WriteByte('}')
 	buf.WriteByte('\n')
 	return buf.Bytes()
+}
+
+func toString(str []byte) string {
+	return *(*string)(unsafe.Pointer(&str))
 }
