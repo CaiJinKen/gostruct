@@ -9,6 +9,7 @@ type content map[string][]string
 type tables struct {
 	name        string //table name
 	field       content
+	orderFields []string
 	index       content
 	uniqueIndex content
 	imports     map[string]string
@@ -75,8 +76,12 @@ func (t *tables) parseField(line []byte) {
 	if t.field == nil {
 		t.field = make(map[string][]string)
 	}
+	if t.orderFields == nil {
+		t.orderFields = make([]string, 0)
+	}
 
 	t.field[nameStr] = append(t.field[nameStr], tp)
+	t.orderFields = append(t.orderFields, nameStr)
 
 	if i := bytes.Index(line, comment); i > 0 { //has comment
 		var commentByts []byte

@@ -145,14 +145,11 @@ func parseTable(table tables) []byte {
 	}
 	buf.WriteString(fmt.Sprintf("type %s struct {\n", table.name))
 
-	var keys []string
-	for k := range table.field {
-		keys = append(keys, k)
+	if *sortField {
+		sort.Strings(table.orderFields)
 	}
 
-	sort.Strings(keys)
-
-	for _, k := range keys {
+	for _, k := range table.orderFields {
 		tags := make([]string, 0)
 		v := table.field[k]
 		buf.WriteString(fmt.Sprintf("\t%s\t%s\t`json:\"%s\"", k, v[0], v[2]))

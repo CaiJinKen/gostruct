@@ -14,7 +14,7 @@ var (
 	drop               = []byte("DROP")
 	space              = []byte{' '}
 	point              = []byte{'.'}
-	unsigned            = []byte("UNSIGNED")
+	unsigned           = []byte("UNSIGNED")
 	comment            = []byte("COMMENT")
 	notNull            = []byte("NOT NULL")
 	autoIncrement      = []byte("AUTO_INCREMENT")
@@ -25,4 +25,5 @@ var inputFile = flag.String("i", "", "input sql file")
 var outputFile = flag.String("o", "", "output file")
 var echo = flag.Bool("e", true, "echo result")
 var gorm = flag.Bool("g", false, "use gorm tag")
+var sortField = flag.Bool("s", false, "sort fields by ASCII")
 var pkg = flag.String("p", "main", "package name")
