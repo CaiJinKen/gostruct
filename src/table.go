@@ -7,7 +7,7 @@ import (
 
 type content map[string][]string
 type tables struct {
-	name        string
+	name        string //table name
 	field       content
 	index       content
 	uniqueIndex content
@@ -21,7 +21,7 @@ func (t *tables) parseField(line []byte) {
 	}
 	var unsign bool
 	if len(contents) >= 3 {
-		unsign = bytes.Equal(contents[2], unsigns)
+		unsign = bytes.Equal(contents[2], unsigned)
 	}
 
 	name := trim(contents[0])
@@ -30,9 +30,11 @@ func (t *tables) parseField(line []byte) {
 	types := contents[1]
 	typesStr := toString(types)
 	contents = contents[2:]
-	types = types[:len(types)-1]
+	if types[len(types)-1] == ')' {
+		types = types[:len(types)-1]
+	}
 	tmpBytes := bytes.Split(types, []byte{'('})
-	var lenBytes []byte
+	var lenBytes = []byte{0}
 	if len(tmpBytes) > 1 {
 		types = tmpBytes[0]
 		lenBytes = tmpBytes[1]
@@ -126,7 +128,7 @@ func (t *tables) parseKey(line []byte) {
 		key := contents[2]
 		key = key[2 : len(key)-2]
 		nameStr := string(title(key))
-		t.field[nameStr] = append(t.field[nameStr], "PRIMARY KEY")
+		t.field[nameStr] = append(t.field[nameStr], "PRIMARY_KEY")
 	}
 
 }

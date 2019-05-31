@@ -13,7 +13,7 @@ func Run() {
 
 	file, err := os.OpenFile(*inputFile, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		panic(err)
+		fmt.Println("open file err: ", err.Error())
 		os.Exit(-1)
 	}
 	defer file.Close()

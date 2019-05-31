@@ -55,7 +55,7 @@ func parseFile(file *os.File) (table tables) {
 			continue
 		}
 
-		if bytes.HasPrefix(line, linlin) || continueComment || bytes.HasPrefix(line, set) || bytes.HasPrefix(line, drop) {
+		if bytes.HasPrefix(line, linLin) || continueComment || bytes.HasPrefix(line, set) || bytes.HasPrefix(line, drop) {
 			continue
 		}
 
@@ -84,9 +84,15 @@ func parseFile(file *os.File) (table tables) {
 
 func trimLine(line []byte) []byte {
 	line = bytes.TrimSpace(line)
-	line = bytes.TrimSuffix(line, []byte{'\r', '\n'})
-	line = bytes.TrimSuffix(line, []byte{'\n'})
-	line = bytes.TrimSuffix(line, []byte{'\r'})
+	lt := len(line)
+	for lt > 0 && (line[lt-1] == '\n' || line[lt-1] == '\r') {
+		lt--
+		if lt == 0 {
+			line = line[:0]
+		} else {
+			line = line[:lt-1]
+		}
+	}
 	return line
 }
 
@@ -159,7 +165,10 @@ func parseTable(table tables) []byte {
 		}
 
 		buf.WriteString(strings.Join(tags, ";"))
-		buf.WriteString("\"`")
+		if len(tags) > 0 {
+			buf.WriteByte('"')
+		}
+		buf.WriteString("`")
 
 		if string(v[1]) != "" {
 			buf.WriteString(fmt.Sprintf(" //%s", v[1]))

@@ -7,14 +7,14 @@ var (
 	star          byte = '*'
 	slash         byte = '/'
 	lin           byte = '-'
-	linlin             = []byte{lin, lin}
+	linLin             = []byte{lin, lin}
 	slashStar          = []byte{slash, star}
 	starSlash          = []byte{star, slash}
 	set                = []byte("SET")
 	drop               = []byte("DROP")
 	space              = []byte{' '}
 	point              = []byte{'.'}
-	unsigns            = []byte("UNSIGNED")
+	unsigned            = []byte("UNSIGNED")
 	comment            = []byte("COMMENT")
 	notNull            = []byte("NOT NULL")
 	autoIncrement      = []byte("AUTO_INCREMENT")
