@@ -1,12 +1,12 @@
 package src
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"reflect"
 	"sort"
 	"strings"
 	"unsafe"
@@ -24,8 +24,7 @@ func writeTmpFile(buf []byte) []byte {
 
 	err := cmd.Run()
 	if err != nil {
-		panic(err)
-		os.Exit(-2)
+		fmt.Printf("run gofmt err: %s\n", err.Error())
 	}
 	f, _ := os.Open(tmpFile)
 	defer f.Close()
@@ -34,12 +33,15 @@ func writeTmpFile(buf []byte) []byte {
 	return bts
 }
 
-func parseFile(file *os.File) (table tables) {
+func parseTable(slice []byte) (table tables) {
+	if len(slice) == 0 {
+		return
+	}
 	var continueComment bool
 
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := trimLine(scanner.Bytes())
+	bts := bytes.Split(slice, []byte{'\n'})
+	for _, line := range bts {
+		line = trimLine(line)
 
 		if len(line) == 0 {
 			continue
@@ -60,7 +62,9 @@ func parseFile(file *os.File) (table tables) {
 		}
 
 		if bytes.HasPrefix(line, []byte("CREATE TABLE")) {
-			table.name = string(title(trim(bytes.Split(line, space)[2])))
+			name := trim(bytes.Split(line, space)[2])
+			table.rawName = string(name)
+			table.name = toString(title(name))
 			table.field = nil
 			table.index = nil
 			continue
@@ -100,12 +104,13 @@ func trim(name []byte) []byte {
 	if len(name) < 2 {
 		return name
 	}
-	if bytes.Contains(name, point) {
-		name = bytes.Split(name, point)[1]
+
+	name = bytes.Trim(name, "`")
+
+	if i := bytes.Index(name, point); i > 0 {
+		name = name[i:]
 	}
-	if name[0] == '`' {
-		name = name[1 : len(name)-1]
-	}
+
 	return name
 }
 
@@ -133,7 +138,7 @@ func title(name []byte) []byte {
 	return result
 }
 
-func parseTable(table tables) []byte {
+func marshalTable(table *tables) []byte {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("package %s\n\n", *pkg))
 	if len(table.imports) > 0 {
@@ -150,35 +155,61 @@ func parseTable(table tables) []byte {
 	}
 
 	for _, k := range table.orderFields {
-		tags := make([]string, 0)
+
+		//v: [field,comment,json_tag,gorm_tag...]
 		v := table.field[k]
-		buf.WriteString(fmt.Sprintf("\t%s\t%s\t`json:\"%s\"", k, v[0], v[2]))
-		if len(v) > 3 {
-			buf.WriteString(" gorm:\"")
-			tags = append(tags, v[3:]...)
-		} else if *gorm && table.index != nil && len(table.index[k]) > 0 {
-			buf.WriteString(" gorm:\"")
-			tags = append(tags, table.index[k]...)
-		}
+		buf.WriteString(fmt.Sprintf("\t%s\t%s", k, v[0]))
 
-		buf.WriteString(strings.Join(tags, ";"))
-		if len(tags) > 0 {
-			buf.WriteByte('"')
+		if (jsonTag != nil && *jsonTag) || (gormTag != nil && *gormTag) {
+			buf.Write([]byte{' ', '`'})
+			tag(&buf, v, table.index, k)
+			buf.WriteByte('`')
 		}
-		buf.WriteString("`")
-
 		if string(v[1]) != "" {
 			buf.WriteString(fmt.Sprintf(" //%s", v[1]))
 		}
 		buf.WriteByte('\n')
-
 	}
 
 	buf.WriteByte('}')
 	buf.WriteByte('\n')
+	buf.WriteString(tableNameFunc(table.name, table.rawName))
 	return buf.Bytes()
+}
+
+func tag(buf *bytes.Buffer, tags []string, index content, key string) {
+	if jsonTag != nil && *jsonTag {
+		buf.WriteString(fmt.Sprintf("json:\"%s\"", tags[2]))
+	}
+	if gormTag != nil && *gormTag {
+		var data []string
+		buf.WriteString(" gorm:\"")
+		if len(tags) > 3 {
+			data = append(data, tags[3:]...)
+		} else if index != nil && len(index[key]) > 0 {
+			data = append(data, index[key]...)
+		}
+		if len(data) > 0 {
+			buf.WriteString(strings.Join(data, ";"))
+		}
+		buf.WriteByte('"')
+	}
+}
+
+func tableNameFunc(name, rawName string) string {
+	return fmt.Sprintf(tableNameFuncStr, name, rawName)
 }
 
 func toString(str []byte) string {
 	return *(*string)(unsafe.Pointer(&str))
+}
+
+func toByte(str string) []byte {
+	sh := (*reflect.StringHeader)(unsafe.Pointer(&str))
+	bh := &reflect.SliceHeader{
+		Data: sh.Data,
+		Len:  sh.Len,
+		Cap:  sh.Len,
+	}
+	return *(*[]byte)(unsafe.Pointer(&bh))
 }

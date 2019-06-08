@@ -7,7 +7,8 @@ import (
 
 type content map[string][]string
 type tables struct {
-	name        string //table name
+	rawName     string
+	name        string //struct name
 	field       content
 	orderFields []string
 	index       content
@@ -104,7 +105,7 @@ func (t *tables) parseField(line []byte) {
 
 	t.field[nameStr] = append(t.field[nameStr], tagName)
 
-	if *gorm { //use gorm tag
+	if *gormTag { //use gorm tag
 		//slice := append(t.field[nameStr], fmt.Sprintf("TYPE:%s;SIZE:%d", string(types), length))
 		slice := append(t.field[nameStr], fmt.Sprintf("TYPE:%s", typesStr))
 		if bytes.Contains(line, notNull) {
@@ -125,7 +126,7 @@ func (t *tables) parseField(line []byte) {
 }
 
 func (t *tables) parseKey(line []byte) {
-	if !*gorm {
+	if !*gormTag {
 		return
 	}
 	contents := bytes.Split(line, space)
@@ -139,14 +140,14 @@ func (t *tables) parseKey(line []byte) {
 }
 
 func (t *tables) parseUniqueIndex(line []byte) {
-	if !*gorm {
+	if !*gormTag {
 		return
 	}
 
 	t.parseIndex(line)
 }
 func (t *tables) parseIndex(line []byte) {
-	if !*gorm {
+	if !*gormTag {
 		return
 	}
 
