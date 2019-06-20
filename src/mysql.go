@@ -9,7 +9,7 @@ import (
 func getMysqlDB(dsn string) (db *sql.DB) {
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		fmt.Sprintf("open mysql err: %+v", err)
+		fmt.Printf("open mysql err: %+v\n", err)
 	}
 	return db
 }
@@ -17,7 +17,7 @@ func getMysqlDB(dsn string) (db *sql.DB) {
 func getTable(db *sql.DB) []byte {
 	rows, err := db.Query(fmt.Sprintf("SHOW CREATE TABLE %s", *tableName))
 	if err != nil {
-		fmt.Sprintf("get table err: %+v\n", err)
+		fmt.Printf("get table err: %+v\n", err)
 	}
 	var (
 		name   string

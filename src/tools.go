@@ -183,7 +183,10 @@ func tag(buf *bytes.Buffer, tags []string, index content, key string) {
 	}
 	if gormTag != nil && *gormTag {
 		var data []string
-		buf.WriteString(" gorm:\"")
+		if jsonTag != nil && *jsonTag {
+			buf.WriteByte(' ')
+		}
+		buf.WriteString("gorm:\"")
 		if len(tags) > 3 {
 			data = append(data, tags[3:]...)
 		} else if index != nil && len(index[key]) > 0 {

@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"github.com/CaiJinKen/go-SQL2Struct/src"
+	"github.com/CaiJinKen/gostruct/src"
 )
 
 func main() {

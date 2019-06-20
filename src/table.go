@@ -44,31 +44,7 @@ func (t *tables) parseField(line []byte) {
 
 	length := int(lenBytes[0])
 	types = tmpBytes[0]
-	tp := string(types)
-	switch tp {
-	case "tinyint":
-		if length == 1 {
-			tp = "boole"
-		} else {
-			tp = "int8"
-		}
-	case "smallint":
-		tp = "int16"
-	case "integer":
-		tp = "int"
-	case "bigint":
-		tp = "int64"
-	case "decimal", "float":
-		tp = "float64"
-	case "char", "varchar":
-		tp = "string"
-	case "date", "datetime", "timestamp", "time":
-		tp = "time.Time"
-		if t.imports == nil {
-			t.imports = make(map[string]string)
-		}
-		t.imports["time"] = "time"
-	}
+	tp := t.exchangeType(length, string(types))
 
 	if unsign {
 		tp = "u" + tp
@@ -146,6 +122,7 @@ func (t *tables) parseUniqueIndex(line []byte) {
 
 	t.parseIndex(line)
 }
+
 func (t *tables) parseIndex(line []byte) {
 	if !*gormTag {
 		return
@@ -164,4 +141,32 @@ func (t *tables) parseIndex(line []byte) {
 		nameStr := string(title(contents[i*2]))
 		t.index[nameStr] = append(t.index[nameStr], "INDEX:"+string(contents[0]))
 	}
+}
+
+func (t *tables) exchangeType(length int, tp string) string {
+	switch tp {
+	case "tinyint":
+		if length == 1 {
+			tp = "boole"
+		} else {
+			tp = "int8"
+		}
+	case "smallint":
+		tp = "int16"
+	case "integer":
+		tp = "int"
+	case "bigint":
+		tp = "int64"
+	case "decimal", "float":
+		tp = "float64"
+	case "char", "varchar":
+		tp = "string"
+	case "date", "datetime", "timestamp", "time":
+		tp = "time.Time"
+		if t.imports == nil {
+			t.imports = make(map[string]string)
+		}
+		t.imports["time"] = "time"
+	}
+	return tp
 }
