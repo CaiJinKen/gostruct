@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -31,6 +32,20 @@ func writeTmpFile(buf []byte) []byte {
 
 	bts, _ := ioutil.ReadAll(f)
 	return bts
+}
+
+//get absolute the output file path
+func absFile() {
+	if outputFile == nil || *outputFile == "" {
+		return
+	}
+
+	var fileName = *outputFile
+	if strings.HasPrefix(fileName, "~/") {
+		fileName = filepath.Join(os.Getenv("HOME"), strings.TrimPrefix(fileName, "~"))
+	}
+
+	outputFile = &fileName
 }
 
 func parseTable(slice []byte) (table tables) {

@@ -3,6 +3,7 @@ package src
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 func Run() {
@@ -15,10 +16,12 @@ func Run() {
 	buf := marshalTable(&table)
 	buf = writeTmpFile(buf)
 	if outputFile != nil && *outputFile != "" {
+		absFile()
+		os.MkdirAll(filepath.Dir(*outputFile), os.ModePerm)
 		os.Rename(tmpFile, *outputFile)
-	} else {
-		os.Remove(tmpFile)
 	}
+	defer os.Remove(tmpFile)
+
 	if *echo {
 		fmt.Println(string(buf))
 	}

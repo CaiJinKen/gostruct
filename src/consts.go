@@ -3,7 +3,7 @@ package src
 import "flag"
 
 var (
-	tmpFile            = "temp_struct.go"
+	tmpFile            = "gostruct_temp_struct.go"
 	star          byte = '*'
 	slash         byte = '/'
 	lin           byte = '-'
