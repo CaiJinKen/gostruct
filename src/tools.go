@@ -120,11 +120,11 @@ func trim(name []byte) []byte {
 		return name
 	}
 
-	name = bytes.Trim(name, "`")
-
 	if i := bytes.Index(name, point); i > 0 {
 		name = name[i:]
 	}
+
+	name = bytes.Trim(name, "`")
 
 	return name
 }
