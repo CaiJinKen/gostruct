@@ -18,6 +18,7 @@ func getTable(db *sql.DB) []byte {
 	rows, err := db.Query(fmt.Sprintf("SHOW CREATE TABLE %s", *tableName))
 	if err != nil {
 		fmt.Printf("get table err: %+v\n", err)
+		return nil
 	}
 	var (
 		name   string
