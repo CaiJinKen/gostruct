@@ -34,7 +34,7 @@ func writeTmpFile(buf []byte) []byte {
 	return bts
 }
 
-//get absolute the output file path
+// get absolute the output file path
 func absFile() {
 	if outputFile == nil || *outputFile == "" {
 		return
@@ -171,7 +171,7 @@ func marshalTable(table *tables) []byte {
 
 	for _, k := range table.orderFields {
 
-		//v: [field,comment,json_tag,gorm_tag...]
+		// v: [field,comment,json_tag,gorm_tag...]
 		v := table.field[k]
 		buf.WriteString(fmt.Sprintf("\t%s\t%s", k, v[0]))
 
@@ -180,7 +180,7 @@ func marshalTable(table *tables) []byte {
 			tag(&buf, v, table.index, k)
 			buf.WriteByte('`')
 		}
-		if string(v[1]) != "" {
+		if v[1] != "" {
 			buf.WriteString(fmt.Sprintf(" //%s", v[1]))
 		}
 		buf.WriteByte('\n')
@@ -201,7 +201,7 @@ func tag(buf *bytes.Buffer, tags []string, index content, key string) {
 		if jsonTag != nil && *jsonTag {
 			buf.WriteByte(' ')
 		}
-		buf.WriteString("gorm:\"")
+		buf.WriteString(fmt.Sprintf("gorm:\"column:%s;",tags[2]))
 		if len(tags) > 3 {
 			data = append(data, tags[3:]...)
 		} else if index != nil && len(index[key]) > 0 {
