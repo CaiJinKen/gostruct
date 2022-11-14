@@ -3,12 +3,13 @@ package src
 import (
 	"bytes"
 	"fmt"
+	"strings"
 )
 
 type content map[string][]string
 type tables struct {
 	rawName     string
-	name        string //struct name
+	name        string // struct name
 	field       content
 	orderFields []string
 	index       content
@@ -60,40 +61,42 @@ func (t *tables) parseField(line []byte) {
 	t.field[nameStr] = append(t.field[nameStr], tp)
 	t.orderFields = append(t.orderFields, nameStr)
 
-	if i := bytes.Index(line, comment); i > 0 { //has comment
-		var commentByts []byte
-		var j int
-		for k, v := range contents {
-			if j > 0 && k > j {
-				commentByts = append(commentByts, v...)
+	if i := bytes.Index(line, comment); i > 0 { // has comment
+		var commentBytes []byte
+		comm := false
+		for _, v := range contents {
+			if bytes.Contains(v, comment) {
+				comm = true
+				continue
 			}
-			if bytes.Equal(v, comment) {
-				j = k
+			if !comm {
+				continue
 			}
+			commentBytes = append(commentBytes, v...)
 		}
-		commentByts = commentByts[1:]
-		commentByts = commentByts[:len(commentByts)-2]
+		commentBytes = commentBytes[1:]
+		commentBytes = commentBytes[:len(commentBytes)-2]
 
-		t.field[nameStr] = append(t.field[nameStr], string(commentByts))
+		t.field[nameStr] = append(t.field[nameStr], string(commentBytes))
 	} else {
 		t.field[nameStr] = append(t.field[nameStr], "")
 	}
 
 	t.field[nameStr] = append(t.field[nameStr], tagName)
 
-	if *gormTag { //use gorm tag
-		//slice := append(t.field[nameStr], fmt.Sprintf("TYPE:%s;SIZE:%d", string(types), length))
-		slice := append(t.field[nameStr], fmt.Sprintf("TYPE:%s", typesStr))
+	if *gormTag { // use gorm tag
+		// slice := append(t.field[nameStr], fmt.Sprintf("TYPE:%s;SIZE:%d", string(types), length))
+		slice := append(t.field[nameStr], fmt.Sprintf("type:%s", typesStr))
 		if bytes.Contains(line, notNull) {
-			slice = append(slice, toString(notNull))
+			slice = append(slice, strings.ToLower(toString(notNull)))
 		}
 		if bytes.Contains(line, autoIncrement) {
-			slice = append(slice, toString(autoIncrement))
+			slice = append(slice, strings.ToLower(toString(autoIncrement)))
 		}
 		if bytes.Contains(line, dft) {
 			for k := range contents {
 				if bytes.Equal(contents[k], dft) {
-					slice = append(slice, "DEFAULT:"+string(bytes.TrimRight(contents[k+1], ",")))
+					slice = append(slice, "default:"+strings.ToLower(string(bytes.TrimRight(contents[k+1], ","))))
 				}
 			}
 		}
@@ -108,9 +111,9 @@ func (t *tables) parseKey(line []byte) {
 	contents := bytes.Split(line, space)
 	if len(contents) >= 3 {
 		key := contents[2]
-		key = key[2 : len(key)-2]
+		key = key[2 : len(key)-3]
 		nameStr := string(title(key))
-		t.field[nameStr] = append(t.field[nameStr], "PRIMARY_KEY")
+		t.field[nameStr] = append(t.field[nameStr], "primaryKey")
 	}
 
 }
@@ -120,12 +123,15 @@ func (t *tables) parseUniqueIndex(line []byte) {
 		return
 	}
 
-	t.parseIndex(line)
+	t.parseIndex("uniqueIndex:", line)
 }
 
-func (t *tables) parseIndex(line []byte) {
+func (t *tables) parseIndex(tp string, line []byte) {
 	if !*gormTag {
 		return
+	}
+	if tp == "" {
+		tp = "index:"
 	}
 
 	contents := bytes.Split(line, []byte{'`'})
@@ -139,7 +145,7 @@ func (t *tables) parseIndex(line []byte) {
 	contents = contents[1 : len(contents)-1]
 	for i := 1; i <= len(contents)/2; i++ {
 		nameStr := string(title(contents[i*2]))
-		t.index[nameStr] = append(t.index[nameStr], "INDEX:"+string(contents[0]))
+		t.index[nameStr] = append(t.index[nameStr], tp+string(contents[0]))
 	}
 }
 
@@ -159,7 +165,7 @@ func (t *tables) exchangeType(length int, tp string) string {
 		tp = "int64"
 	case "decimal", "float":
 		tp = "float64"
-	case "char", "varchar":
+	case "char", "varchar", "text":
 		tp = "string"
 	case "date", "datetime", "timestamp", "time":
 		tp = "time.Time"

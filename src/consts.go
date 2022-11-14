@@ -40,6 +40,6 @@ var (
 	jsonTag    = flag.Bool("j", true, "use json tag")
 	sortField  = flag.Bool("s", false, "sort fields by ASCII")
 	pkg        = flag.String("p", "models", "package name")
-	dsn        = flag.String("d", "", "mysql dsn, format: user:password@tcp(host:port)/db_name")
+	dsn        = flag.String("d", "", "mysql dsn, format: 'user:password@tcp(host:port)/db_name'")
 	tableName  = flag.String("t", "", "table name")
 )

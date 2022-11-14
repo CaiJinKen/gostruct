@@ -16,7 +16,6 @@ import (
 func writeTmpFile(buf []byte) []byte {
 	if err := ioutil.WriteFile(tmpFile, buf, 0664); err != nil {
 		panic(err)
-		os.Exit(-1)
 	}
 	cmd := exec.Command("gofmt", "-w", tmpFile)
 	cmd.Stdin = os.Stdin
@@ -48,11 +47,13 @@ func absFile() {
 	outputFile = &fileName
 }
 
-func parseTable(slice []byte) (table tables) {
+func parseTable(slice []byte) (table *tables) {
 	if len(slice) == 0 {
 		return
 	}
 	var continueComment bool
+
+	table = new(tables)
 
 	bts := bytes.Split(slice, []byte{'\n'})
 	for _, line := range bts {
@@ -80,8 +81,6 @@ func parseTable(slice []byte) (table tables) {
 			name := trim(bytes.Split(line, space)[2])
 			table.rawName = string(name)
 			table.name = toString(title(name))
-			table.field = nil
-			table.index = nil
 			continue
 		}
 
@@ -92,8 +91,8 @@ func parseTable(slice []byte) (table tables) {
 			table.parseField(line)
 		case 'P':
 			table.parseKey(line)
-		case 'I':
-			table.parseIndex(line)
+		case 'I', 'K':
+			table.parseIndex("", line)
 		case 'U':
 			table.parseUniqueIndex(line)
 		}
@@ -139,13 +138,15 @@ func title(name []byte) []byte {
 		}
 		switch string(names[k]) {
 		case "Id":
-			names[k][1] = 'D'
+			names[k] = []byte("ID")
 		case "Uuid":
 			names[k] = []byte("UUID")
 		case "Http":
 			names[k] = []byte("HTTP")
 		case "Url":
 			names[k] = []byte("URL")
+		case "Html":
+			names[k] = []byte("HTML")
 		}
 
 		result = append(result, names[k]...)
@@ -181,7 +182,7 @@ func marshalTable(table *tables) []byte {
 			buf.WriteByte('`')
 		}
 		if v[1] != "" {
-			buf.WriteString(fmt.Sprintf(" //%s", v[1]))
+			buf.WriteString(fmt.Sprintf(" // %s", v[1]))
 		}
 		buf.WriteByte('\n')
 	}
@@ -201,7 +202,7 @@ func tag(buf *bytes.Buffer, tags []string, index content, key string) {
 		if jsonTag != nil && *jsonTag {
 			buf.WriteByte(' ')
 		}
-		buf.WriteString(fmt.Sprintf("gorm:\"column:%s;",tags[2]))
+		buf.WriteString(fmt.Sprintf("gorm:\"column:%s;", tags[2]))
 		if len(tags) > 3 {
 			data = append(data, tags[3:]...)
 		} else if index != nil && len(index[key]) > 0 {

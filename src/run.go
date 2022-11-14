@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 )
 
+// Run start
 func Run() {
 	if (inputFile == nil || *inputFile == "") && (dsn == nil || *dsn == "") {
 		fmt.Println("need one table source (input file or dsn) at lest.")
@@ -13,7 +14,7 @@ func Run() {
 	}
 
 	table := parseTable(getTableBytes())
-	buf := marshalTable(&table)
+	buf := marshalTable(table)
 	buf = writeTmpFile(buf)
 	if outputFile != nil && *outputFile != "" {
 		absFile()
