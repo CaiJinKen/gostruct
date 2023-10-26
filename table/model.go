@@ -2,10 +2,11 @@ package table
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"os/exec"
 	"sync"
+
+	"github.com/CaiJinKen/gostruct/handler"
 )
 
 type model struct {
@@ -36,7 +37,7 @@ func (m *model) format() {
 
 		err := cmd.Run()
 		if err != nil {
-			fmt.Printf("run gofmt err: %s\n", err.Error())
+			handler.PrintErrAndExit(err)
 			return
 		}
 		m.result = m.writer.Bytes()
