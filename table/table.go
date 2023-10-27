@@ -3,11 +3,15 @@ package table
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/CaiJinKen/gostruct/handler"
 )
 
 const tableNameStr = `
@@ -29,12 +33,17 @@ func (c *Config) Build() *Table {
 	return table
 }
 
-type Filed struct {
+type defaultValue struct {
+	value string
+	valid bool
+}
+
+type Field struct {
 	table *Table
 
 	Name          string
 	RawName       string
-	Default       string
+	Default       defaultValue
 	TypeName      string
 	RawTypeName   string
 	Comment       string
@@ -44,7 +53,7 @@ type Filed struct {
 
 	Type *Type
 
-	idxs []*Index
+	indexes []*Index
 }
 
 type Type struct {
@@ -65,10 +74,10 @@ type Table struct {
 
 	Name         string
 	RawName      string
-	Fileds       []*Filed
+	Fields       []*Field
 	PrimaryKeys  []string
-	Idexes       []*Index
-	nameFiledMap map[string]*Filed
+	Indexes      []*Index
+	nameFiledMap map[string]*Field
 	Imports      map[string]string
 	Comment      string
 
@@ -76,7 +85,7 @@ type Table struct {
 }
 
 type Index struct {
-	Fileds  []string
+	Fields  []string
 	Type    int
 	RawName string
 	Comment string
@@ -86,26 +95,26 @@ func newTable() *Table {
 	return &Table{
 		Name:         "",
 		RawName:      "",
-		Fileds:       make([]*Filed, 0),
-		Idexes:       make([]*Index, 0),
+		Fields:       make([]*Field, 0),
+		Indexes:      make([]*Index, 0),
 		PrimaryKeys:  make([]string, 0),
-		nameFiledMap: make(map[string]*Filed),
+		nameFiledMap: make(map[string]*Field),
 		Imports:      make(map[string]string),
 
 		model: newModel(),
 	}
 }
 
-func (f *Filed) parseType() {
+func (f *Field) parseType() {
 	if f.TypeName == "" {
 		return
 	}
 	tp := &Type{}
 	f.Type = tp
-	strs := strings.Split(f.TypeName, "(")
-	f.TypeName = strs[0]
-	if len(strs) > 1 {
-		lengths := strings.Split(strs[1], "")
+	typeNameSlice := strings.Split(f.TypeName, "(")
+	f.TypeName = typeNameSlice[0]
+	if len(typeNameSlice) > 1 {
+		lengths := strings.Split(typeNameSlice[1], "")
 		str := strings.Join(lengths[:len(lengths)-1], "")
 		sizes := strings.Split(str, ",")
 
@@ -120,7 +129,7 @@ func (f *Filed) parseType() {
 	f.getType()
 }
 
-func (f *Filed) getType() {
+func (f *Field) getType() {
 	switch f.TypeName {
 	case "tinyint":
 		f.Type.name = reflect.Int.String()
@@ -160,8 +169,8 @@ func (t *Table) parseField(line []byte) {
 	if len(contents) < 2 {
 		return
 	}
-	f := &Filed{table: t}
-	t.Fileds = append(t.Fileds, f)
+	f := &Field{table: t}
+	t.Fields = append(t.Fields, f)
 
 	name := trim(contents[0])
 	f.RawName = string(name)
@@ -182,7 +191,14 @@ func (t *Table) parseField(line []byte) {
 			continue
 
 		case "DEFAULT":
-			f.Default = string(bytes.Trim(contents[i+1], "'"))
+			f.Default = defaultValue{
+				value: string(bytes.Trim(contents[i+1], "'")),
+				valid: true,
+			}
+			if len(contents[i+1]) == 2 {
+				f.Default.value = "''"
+			}
+
 			i += 1
 			continue
 
@@ -242,15 +258,15 @@ func (t *Table) parseUniqueIndex(line []byte) {
 		return
 	}
 	idx := &Index{
-		Fileds:  nil,
+		Fields:  nil,
 		Type:    2,
 		RawName: string(trim(contents[2])),
 		Comment: "",
 	}
 	size := len(contents[3])
-	fileds := contents[3][1 : size-1]
-	for _, v := range bytes.Split(fileds, []byte{','}) {
-		idx.Fileds = append(idx.Fileds, string(v[1:len(v)-1]))
+	fields := contents[3][1 : size-1]
+	for _, v := range bytes.Split(fields, []byte{','}) {
+		idx.Fields = append(idx.Fields, string(v[1:len(v)-1]))
 	}
 	for i := 4; i < len(contents); i++ {
 		v := contents[i]
@@ -259,9 +275,9 @@ func (t *Table) parseUniqueIndex(line []byte) {
 		}
 		idx.Comment = string(contents[i+1])
 	}
-	for _, v := range idx.Fileds {
+	for _, v := range idx.Fields {
 		if filed, ok := t.nameFiledMap[v]; ok && filed != nil {
-			filed.idxs = append(filed.idxs, idx)
+			filed.indexes = append(filed.indexes, idx)
 		}
 	}
 }
@@ -272,15 +288,15 @@ func (t *Table) parseIndex(line []byte) {
 		return
 	}
 	idx := &Index{
-		Fileds:  nil,
+		Fields:  nil,
 		Type:    1,
 		RawName: string(trim(contents[1])),
 		Comment: "",
 	}
 	size := len(contents[2])
-	fileds := contents[2][1 : size-1]
-	for _, v := range bytes.Split(fileds, []byte{','}) {
-		idx.Fileds = append(idx.Fileds, string(v[1:len(v)-1]))
+	fields := contents[2][1 : size-1]
+	for _, v := range bytes.Split(fields, []byte{','}) {
+		idx.Fields = append(idx.Fields, string(v[1:len(v)-1]))
 	}
 	for i := 3; i < len(contents); i++ {
 		v := contents[i]
@@ -290,9 +306,9 @@ func (t *Table) parseIndex(line []byte) {
 		idx.Comment = string(contents[i+1])
 	}
 
-	for _, v := range idx.Fileds {
+	for _, v := range idx.Fields {
 		if filed, ok := t.nameFiledMap[v]; ok && filed != nil {
-			filed.idxs = append(filed.idxs, idx)
+			filed.indexes = append(filed.indexes, idx)
 		}
 	}
 }
@@ -310,13 +326,13 @@ func (t *Table) Marshal() {
 	}
 
 	if t.SortField {
-		sort.Slice(t.Fileds, func(i, j int) bool {
-			return t.Fileds[i].Name < t.Fileds[j].Name
+		sort.Slice(t.Fields, func(i, j int) bool {
+			return t.Fields[i].Name < t.Fields[j].Name
 		})
 	}
 
 	buf.WriteString(fmt.Sprintf("type %s struct {\n", t.Name))
-	for _, filed := range t.Fileds {
+	for _, filed := range t.Fields {
 		buf.WriteString(fmt.Sprintf("\t%s\t%s", filed.Name, filed.Type.String()))
 		if t.UseJsonTag || t.UseGormTag {
 			buf.WriteString("\t`")
@@ -336,8 +352,8 @@ func (t *Table) Marshal() {
 					fmt.Sprintf("COLUMN:%s", filed.RawName),
 					fmt.Sprintf("TYPE:%s", filed.RawTypeName),
 				)
-				if filed.Default != "" {
-					contents = append(contents, fmt.Sprintf("DEFAULT:%s", filed.Default))
+				if filed.Default.valid {
+					contents = append(contents, fmt.Sprintf("DEFAULT:%s", filed.Default.value))
 				}
 				if filed.NotNull {
 					contents = append(contents, "NOT NULL")
@@ -354,7 +370,7 @@ func (t *Table) Marshal() {
 					}
 				}
 
-				for _, v := range filed.idxs {
+				for _, v := range filed.indexes {
 					switch v.Type {
 					case 1:
 						contents = append(contents, fmt.Sprintf("INDEX:%s", v.RawName))
@@ -389,19 +405,22 @@ func (t *Table) Data() []byte {
 	return t.model.result
 }
 
-func (t *Table) Parse(slice []byte) {
+func (t *Table) Parse(data []byte) {
 
-	if len(slice) == 0 {
+	if len(data) == 0 {
 		return
 	}
 
 	var continueComment bool
 
-	reader := bufio.NewReader(bytes.NewReader(slice))
+	reader := bufio.NewReader(bytes.NewReader(data))
 	for {
 		line, _, err := reader.ReadLine()
 		if err != nil {
-			break
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			handler.PrintErrAndExit(err)
 		}
 		line = trimLine(line)
 

@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/CaiJinKen/gostruct/handler"
 	"github.com/CaiJinKen/gostruct/table"
 )
 
 type Engine struct {
-	param *param
+	param  *param
+	errors []error
 }
 
 func New() *Engine {
@@ -20,6 +22,7 @@ func New() *Engine {
 func (e *Engine) Run() {
 	data, err := e.rawData()
 	if err != nil {
+		handler.PrintErrAndExit(err)
 		return
 	}
 
@@ -37,7 +40,7 @@ func (e *Engine) rawData() ([]byte, error) {
 	return source.GetData()
 }
 
-func (e *Engine) Parse(slice []byte) (t *table.Table) {
+func (e *Engine) Parse(data []byte) (t *table.Table) {
 	c := &table.Config{
 		UseGormTag: e.param.useGormTag,
 		UseJsonTag: e.param.useJsonTag,
@@ -45,7 +48,7 @@ func (e *Engine) Parse(slice []byte) (t *table.Table) {
 		PkgName:    e.param.pkgName,
 	}
 	t = c.Build()
-	t.Parse(slice)
+	t.Parse(data)
 	return t
 }
 
@@ -62,8 +65,8 @@ func (e *Engine) genFile(data []byte) {
 	}
 	f, err := os.Create(e.param.outputFile)
 	if err != nil {
-		fmt.Println(fmt.Sprintf("create file %s err %v", e.param.outputFile, err))
-		os.Exit(-1)
+		handler.PrintErrAndExit(err)
+		return
 	}
 	defer f.Close()
 	f.Write(data)
