@@ -2,11 +2,8 @@ package table
 
 import (
 	"bytes"
-	"os"
-	"os/exec"
+	"go/format"
 	"sync"
-
-	"github.com/CaiJinKen/gostruct/handler"
 )
 
 type model struct {
@@ -29,20 +26,23 @@ func (m *model) format() {
 	if m.reader == nil || m.reader.Len() == 0 {
 		return
 	}
-	m.once.Do(func() {
-		cmd := exec.Command("gofmt")
-		cmd.Stdin = m.reader
-		cmd.Stdout = m.writer
-		cmd.Stderr = os.Stderr
 
-		err := cmd.Run()
-		if err != nil {
-			handler.PrintErrAndExit(err)
-			return
-		}
-		m.result = m.writer.Bytes()
-		m.writer = nil
-		m.reader = nil
-	})
+	m.result, _ = format.Source(m.reader.Bytes())
+
+	// m.once.Do(func() {
+	// 	cmd := exec.Command("gofmt")
+	// 	cmd.Stdin = m.reader
+	// 	cmd.Stdout = m.writer
+	// 	cmd.Stderr = os.Stderr
+	//
+	// 	err := cmd.Run()
+	// 	if err != nil {
+	// 		handler.PrintErrAndExit(err)
+	// 		return
+	// 	}
+	// 	m.result = m.writer.Bytes()
+	// 	m.writer = nil
+	// 	m.reader = nil
+	// })
 
 }
